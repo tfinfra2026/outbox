@@ -16,7 +16,7 @@ concurrency:
 jobs:
   deploy:
     name: Deploy Backend to VPS-2
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, outbox-vps]
 
     steps:
 
@@ -27,183 +27,137 @@ jobs:
         uses: actions/checkout@v4
 
       # ==========================================================
-      # 2. Setup SSH Key
-      # ==========================================================
-      - name: Setup SSH Key
-        run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.SERVER_SSH_KEY }}" > ~/.ssh/outbox_key
-          chmod 600 ~/.ssh/outbox_key
-          ssh-keyscan -p "${{ vars.SERVER_PORT }}" -H "${{ vars.SERVER_HOST }}" >> ~/.ssh/known_hosts
-
-      # ==========================================================
-      # 3. Test SSH Connection
-      # ==========================================================
-      - name: Test SSH Connection
-        run: |
-          ssh \
-            -i ~/.ssh/outbox_key \
-            -p "${{ vars.SERVER_PORT }}" \
-            "${{ vars.SERVER_USER }}@${{ vars.SERVER_HOST }}" \
-            "echo 'SSH connection successful'"
-
-      # ==========================================================
-      # 4. Verify Server
+      # 2. Verify Outbox Server
+      #
+      # No SSH needed — the runner IS the server, so these checks
+      # run as plain local commands.
       # ==========================================================
       - name: Verify Outbox Server
         run: |
-          ssh \
-            -i ~/.ssh/outbox_key \
-            -p "${{ vars.SERVER_PORT }}" \
-            "${{ vars.SERVER_USER }}@${{ vars.SERVER_HOST }}" \
-            "
-              set -e
+          set -e
 
-              echo '======================================'
-              echo 'Verifying Outbox Server'
-              echo '======================================'
+          echo '======================================'
+          echo 'Verifying Outbox Server'
+          echo '======================================'
 
-              echo 'Checking deployment directory...'
-              test -d '${{ vars.DEPLOY_PATH }}'
+          echo 'Checking deployment directory...'
+          test -d "${{ vars.DEPLOY_PATH }}"
 
-              echo 'Checking backend directory...'
-              test -d '${{ vars.DEPLOY_PATH }}/backend'
+          echo 'Checking backend directory...'
+          test -d "${{ vars.DEPLOY_PATH }}/backend"
 
-              echo 'Checking production .env...'
-              test -f '${{ vars.DEPLOY_PATH }}/.env'
+          echo 'Checking production .env...'
+          test -f "${{ vars.DEPLOY_PATH }}/.env"
 
-              echo 'Checking Docker Compose...'
-              cd '${{ vars.DEPLOY_PATH }}'
-              sudo docker compose config --services | grep -qx 'outbox'
+          echo 'Checking Docker Compose...'
+          cd "${{ vars.DEPLOY_PATH }}"
+          docker compose config --services | grep -qx 'outbox'
 
-              echo ''
-              echo 'Server verification successful.'
-            "
+          echo ''
+          echo 'Server verification successful.'
 
       # ==========================================================
-      # 5. Upload Backend Only
+      # 3. Sync Backend Only
       #
       # IMPORTANT:
-      # - .env is NOT uploaded
-      # - node_modules is NOT uploaded
-      # - data is NOT uploaded
-      # - db is NOT uploaded
-      # - uploads is NOT uploaded
+      # - .env is NOT synced
+      # - node_modules is NOT synced
+      # - data is NOT synced
+      # - db is NOT synced
+      # - uploads is NOT synced
       # - --delete is NOT used
+      #
+      # No SSH transport needed — source (checkout) and destination
+      # (DEPLOY_PATH) are both on this same machine.
       # ==========================================================
-      - name: Upload Backend Source
+      - name: Sync Backend Source
         run: |
-          rsync -az \
+          rsync -a \
             --exclude='.env' \
             --exclude='node_modules/' \
             --exclude='data/' \
             --exclude='db/' \
             --exclude='uploads/' \
-            -e "ssh -i ~/.ssh/outbox_key -p ${{ vars.SERVER_PORT }}" \
             backend/ \
-            "${{ vars.SERVER_USER }}@${{ vars.SERVER_HOST }}:${{ vars.DEPLOY_PATH }}/backend/"
+            "${{ vars.DEPLOY_PATH }}/backend/"
 
       # ==========================================================
-      # 6. Verify Protected Files
+      # 4. Verify Protected Files
       # ==========================================================
       - name: Verify Protected Files
         run: |
-          ssh \
-            -i ~/.ssh/outbox_key \
-            -p "${{ vars.SERVER_PORT }}" \
-            "${{ vars.SERVER_USER }}@${{ vars.SERVER_HOST }}" \
-            "
-              set -e
+          set -e
 
-              echo '======================================'
-              echo 'Verifying Protected Files'
-              echo '======================================'
+          echo '======================================'
+          echo 'Verifying Protected Files'
+          echo '======================================'
 
-              echo 'Checking .env...'
-              test -f '${{ vars.DEPLOY_PATH }}/.env'
+          echo 'Checking .env...'
+          test -f "${{ vars.DEPLOY_PATH }}/.env"
 
-              echo 'Checking data directory...'
-              test -d '${{ vars.DEPLOY_PATH }}/backend/data'
+          echo 'Checking data directory...'
+          test -d "${{ vars.DEPLOY_PATH }}/backend/data"
 
-              echo 'Checking database directory...'
-              test -d '${{ vars.DEPLOY_PATH }}/backend/db'
+          echo 'Checking database directory...'
+          test -d "${{ vars.DEPLOY_PATH }}/backend/db"
 
-              echo 'Checking uploads directory...'
-              test -d '${{ vars.DEPLOY_PATH }}/backend/uploads'
+          echo 'Checking uploads directory...'
+          test -d "${{ vars.DEPLOY_PATH }}/backend/uploads"
 
-              echo ''
-              echo 'Protected files/directories are safe.'
-            "
+          echo ''
+          echo 'Protected files/directories are safe.'
 
       # ==========================================================
-      # 7. Build Backend Docker Image
+      # 5. Build Backend Docker Image
       # ==========================================================
       - name: Build Backend Docker Image
         run: |
-          ssh \
-            -i ~/.ssh/outbox_key \
-            -p "${{ vars.SERVER_PORT }}" \
-            "${{ vars.SERVER_USER }}@${{ vars.SERVER_HOST }}" \
-            "
-              set -e
-              cd '${{ vars.DEPLOY_PATH }}'
+          set -e
+          cd "${{ vars.DEPLOY_PATH }}"
 
-              echo '======================================'
-              echo 'Building Outbox Backend'
-              echo '======================================'
+          echo '======================================'
+          echo 'Building Outbox Backend'
+          echo '======================================'
 
-              sudo docker compose build --no-cache outbox
-            "
+          docker compose build --no-cache outbox
 
       # ==========================================================
-      # 8. Recreate Only Outbox Container
+      # 6. Recreate Only Outbox Container
       # ==========================================================
       - name: Restart Backend Container
         run: |
-          ssh \
-            -i ~/.ssh/outbox_key \
-            -p "${{ vars.SERVER_PORT }}" \
-            "${{ vars.SERVER_USER }}@${{ vars.SERVER_HOST }}" \
-            "
-              set -e
-              cd '${{ vars.DEPLOY_PATH }}'
+          set -e
+          cd "${{ vars.DEPLOY_PATH }}"
 
-              echo '======================================'
-              echo 'Restarting Outbox Backend'
-              echo '======================================'
+          echo '======================================'
+          echo 'Restarting Outbox Backend'
+          echo '======================================'
 
-              sudo docker compose up -d --force-recreate outbox
-            "
+          docker compose up -d --force-recreate outbox
 
       # ==========================================================
-      # 9. Verify Container
+      # 7. Verify Container
       # ==========================================================
       - name: Verify Backend Container
         run: |
-          ssh \
-            -i ~/.ssh/outbox_key \
-            -p "${{ vars.SERVER_PORT }}" \
-            "${{ vars.SERVER_USER }}@${{ vars.SERVER_HOST }}" \
-            "
-              set -e
-              cd '${{ vars.DEPLOY_PATH }}'
+          set -e
+          cd "${{ vars.DEPLOY_PATH }}"
 
-              echo '======================================'
-              echo 'Outbox Backend Status'
-              echo '======================================'
+          echo '======================================'
+          echo 'Outbox Backend Status'
+          echo '======================================'
 
-              sudo docker compose ps outbox
+          docker compose ps outbox
 
-              echo ''
-              echo 'Container state:'
-              sudo docker inspect -f '{{.State.Status}}' outbox
+          echo ''
+          echo 'Container state:'
+          docker inspect -f '{{.State.Status}}' outbox
 
-              echo ''
-              echo 'Checking production .env...'
-              test -f '${{ vars.DEPLOY_PATH }}/.env'
+          echo ''
+          echo 'Checking production .env...'
+          test -f "${{ vars.DEPLOY_PATH }}/.env"
 
-              echo ''
-              echo '======================================'
-              echo 'Backend Deployment Successful'
-              echo '======================================'
-            "
+          echo ''
+          echo '======================================'
+          echo 'Backend Deployment Successful'
+          echo '======================================'

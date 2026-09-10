@@ -1,0 +1,30 @@
+{
+  "name": "techforce-outreach-backend",
+  "version": "1.0.0",
+  "description": "Techforce in-house email outreach engine - backend API, scheduler and sending engine",
+  "main": "server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js",
+    "seed": "node seed.js",
+    "test:smoke": "node --no-warnings smoke-test.js",
+    "test:http": "node --no-warnings http-smoke-test.js",
+    "test": "npm run test:smoke && npm run test:http"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "express-rate-limit": "^7.4.0",
+    "helmet": "^7.1.0",
+    "imapflow": "^1.7.7",
+    "jsonwebtoken": "^9.0.2",
+    "mailparser": "^3.9.19",
+    "multer": "^1.4.5-lts.1",
+    "mysql2": "^3.11.3",
+    "node-cron": "^3.0.3",
+    "nodemailer": "^6.9.14",
+    "uuid": "^9.0.1"
+  }
+}

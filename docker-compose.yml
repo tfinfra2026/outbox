@@ -1,0 +1,39 @@
+services:
+  outbox:
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    container_name: outbox
+
+    restart: unless-stopped
+
+    env_file:
+      - .env
+
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+    ports:
+      - "127.0.0.1:4000:4000"
+
+    volumes:
+      - ./backend/uploads:/app/uploads
+      - ./backend/data:/app/data
+
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://127.0.0.1:4000/"
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+    stop_grace_period: 10s

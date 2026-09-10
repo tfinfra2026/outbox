@@ -16,7 +16,7 @@ concurrency:
 jobs:
   deploy:
     name: Deploy Backend to VPS-2
-    runs-on: [self-hosted, outbox-vps]
+    runs-on: self-hosted
 
     steps:
 

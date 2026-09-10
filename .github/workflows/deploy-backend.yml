@@ -26,24 +26,15 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-
       # ==========================================================
-      # 2. Configure SSH
+      # 2. Setup SSH Key
       # ==========================================================
-      - name: Configure SSH
+      - name: Setup SSH Key
         run: |
           mkdir -p ~/.ssh
-          chmod 700 ~/.ssh
-
-          printf '%s\n' "${{ secrets.SERVER_SSH_KEY }}" > ~/.ssh/outbox_key
-
+          echo "${{ secrets.SERVER_SSH_KEY }}" > ~/.ssh/outbox_key
           chmod 600 ~/.ssh/outbox_key
-
-          ssh-keyscan \
-            -p "${{ vars.SERVER_PORT }}" \
-            "${{ vars.SERVER_HOST }}" \
-            >> ~/.ssh/known_hosts
-
+          ssh-keyscan -p "${{ vars.SERVER_PORT }}" -H "${{ vars.SERVER_HOST }}" >> ~/.ssh/known_hosts
 
       # ==========================================================
       # 3. Test SSH Connection
@@ -55,7 +46,6 @@ jobs:
             -p "${{ vars.SERVER_PORT }}" \
             "${{ vars.SERVER_USER }}@${{ vars.SERVER_HOST }}" \
             "echo 'SSH connection successful'"
-
 
       # ==========================================================
       # 4. Verify Server
@@ -74,27 +64,21 @@ jobs:
               echo '======================================'
 
               echo 'Checking deployment directory...'
-
               test -d '${{ vars.DEPLOY_PATH }}'
 
               echo 'Checking backend directory...'
-
               test -d '${{ vars.DEPLOY_PATH }}/backend'
 
               echo 'Checking production .env...'
-
               test -f '${{ vars.DEPLOY_PATH }}/.env'
 
               echo 'Checking Docker Compose...'
-
               cd '${{ vars.DEPLOY_PATH }}'
-
               sudo docker compose config --services | grep -qx 'outbox'
 
               echo ''
               echo 'Server verification successful.'
             "
-
 
       # ==========================================================
       # 5. Upload Backend Only
@@ -119,7 +103,6 @@ jobs:
             backend/ \
             "${{ vars.SERVER_USER }}@${{ vars.SERVER_HOST }}:${{ vars.DEPLOY_PATH }}/backend/"
 
-
       # ==========================================================
       # 6. Verify Protected Files
       # ==========================================================
@@ -137,25 +120,20 @@ jobs:
               echo '======================================'
 
               echo 'Checking .env...'
-
               test -f '${{ vars.DEPLOY_PATH }}/.env'
 
               echo 'Checking data directory...'
-
               test -d '${{ vars.DEPLOY_PATH }}/backend/data'
 
               echo 'Checking database directory...'
-
               test -d '${{ vars.DEPLOY_PATH }}/backend/db'
 
               echo 'Checking uploads directory...'
-
               test -d '${{ vars.DEPLOY_PATH }}/backend/uploads'
 
               echo ''
               echo 'Protected files/directories are safe.'
             "
-
 
       # ==========================================================
       # 7. Build Backend Docker Image
@@ -168,7 +146,6 @@ jobs:
             "${{ vars.SERVER_USER }}@${{ vars.SERVER_HOST }}" \
             "
               set -e
-
               cd '${{ vars.DEPLOY_PATH }}'
 
               echo '======================================'
@@ -177,7 +154,6 @@ jobs:
 
               sudo docker compose build --no-cache outbox
             "
-
 
       # ==========================================================
       # 8. Recreate Only Outbox Container
@@ -190,7 +166,6 @@ jobs:
             "${{ vars.SERVER_USER }}@${{ vars.SERVER_HOST }}" \
             "
               set -e
-
               cd '${{ vars.DEPLOY_PATH }}'
 
               echo '======================================'
@@ -199,7 +174,6 @@ jobs:
 
               sudo docker compose up -d --force-recreate outbox
             "
-
 
       # ==========================================================
       # 9. Verify Container
@@ -212,7 +186,6 @@ jobs:
             "${{ vars.SERVER_USER }}@${{ vars.SERVER_HOST }}" \
             "
               set -e
-
               cd '${{ vars.DEPLOY_PATH }}'
 
               echo '======================================'
@@ -223,14 +196,10 @@ jobs:
 
               echo ''
               echo 'Container state:'
-
-              sudo docker inspect \
-                -f '{{.State.Status}}' \
-                outbox
+              sudo docker inspect -f '{{.State.Status}}' outbox
 
               echo ''
               echo 'Checking production .env...'
-
               test -f '${{ vars.DEPLOY_PATH }}/.env'
 
               echo ''
